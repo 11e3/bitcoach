@@ -1,19 +1,40 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Key, Upload, AlertTriangle, Shield, CheckCircle } from "lucide-react";
+import { AlertTriangle, Shield, CheckCircle, Loader2, ClipboardPaste, Key, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import type { AuthMethod } from "@/types";
+
+const SCRIPT_URL = "https://cdn.jsdelivr.net/gh/11e3/bitcoach@master/frontend/public/upbit-export.js";
+const BOOKMARKLET_CODE = `javascript:void(document.head.appendChild(Object.assign(document.createElement('script'),{src:'${SCRIPT_URL}'})))`;
+
+type Method = "script" | "api_key";
 
 export default function Setup() {
   const navigate = useNavigate();
-  const [method, setMethod] = useState<AuthMethod>("api_key");
+  const [method, setMethod] = useState<Method>("script");
+  const [pasteText, setPasteText] = useState("");
   const [accessKey, setAccessKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
-  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+
+  const handlePaste = async () => {
+    if (!pasteText.trim()) return;
+    setLoading(true);
+    setError(null);
+    setStatus("거래내역 파싱 중...");
+
+    try {
+      const result = await api.pasteTrades(pasteText);
+      setStatus(`${result.synced}건 저장 완료! (총 ${result.total_parsed}건 파싱)`);
+      setTimeout(() => navigate("/dashboard"), 1500);
+    } catch (e: any) {
+      setError(e.message || "파싱 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleConnect = async () => {
     if (!accessKey || !secretKey) return;
@@ -22,40 +43,22 @@ export default function Setup() {
     setStatus("업비트 연결 확인 중...");
 
     try {
-      // Step 1: Connect (sends keys to backend memory)
       const connectResult = await api.connect(accessKey, secretKey);
       if (!connectResult.success) {
         setError(connectResult.message);
         return;
       }
-
-      setStatus(`연결 성공! ${connectResult.balance_count}개 잔고 확인. 거래내역 동기화 중...`);
-
-      // Step 2: Sync trades
+      setStatus("연결 성공! 거래내역 동기화 중... (1~2분 소요)");
       const syncResult = await api.syncTrades();
-      setStatus(`${syncResult.synced}건 동기화 완료!`);
-
-      // Navigate after brief delay
-      setTimeout(() => navigate("/dashboard"), 1000);
+      setStatus(
+        `${syncResult.synced}건 동기화 완료!` +
+        (syncResult.market_orders_enriched
+          ? ` (시장가 ${syncResult.market_orders_enriched}건 체결가 수집)`
+          : "")
+      );
+      setTimeout(() => navigate("/dashboard"), 1500);
     } catch (e: any) {
       setError(e.message || "연결 실패");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCsvUpload = async () => {
-    if (!csvFile) return;
-    setLoading(true);
-    setError(null);
-    setStatus("CSV 파싱 중...");
-
-    try {
-      const result = await api.uploadCsv(csvFile);
-      setStatus(`${result.synced}건 저장 완료!`);
-      setTimeout(() => navigate("/dashboard"), 1000);
-    } catch (e: any) {
-      setError(e.message || "업로드 실패");
     } finally {
       setLoading(false);
     }
@@ -70,21 +73,30 @@ export default function Setup() {
 
       {/* Method tabs */}
       <div className="mb-6 flex gap-2">
-        {(["api_key", "csv"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => { setMethod(m); setError(null); setStatus(null); }}
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
-              method === m
-                ? "bg-brand-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            )}
-          >
-            {m === "api_key" ? <Key className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-            {m === "api_key" ? "API Key" : "CSV 업로드"}
-          </button>
-        ))}
+        <button
+          onClick={() => { setMethod("script"); setError(null); setStatus(null); }}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+            method === "script"
+              ? "bg-brand-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          )}
+        >
+          <ClipboardPaste className="h-4 w-4" />
+          거래내역 가져오기
+        </button>
+        <button
+          onClick={() => { setMethod("api_key"); setError(null); setStatus(null); }}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+            method === "api_key"
+              ? "bg-brand-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          )}
+        >
+          <Key className="h-4 w-4" />
+          API Key
+        </button>
       </div>
 
       {/* Error */}
@@ -96,64 +108,116 @@ export default function Setup() {
 
       {/* Status */}
       {status && !error && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-          <CheckCircle className="h-4 w-4" />
-          {status}
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          {loading ? (
+            <Loader2 className="mt-0.5 h-4 w-4 flex-shrink-0 animate-spin" />
+          ) : (
+            <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          )}
+          <span className="whitespace-pre-line">{status}</span>
         </div>
       )}
 
-      {/* API Key form */}
-      {method === "api_key" && (
+      {/* Script method */}
+      {method === "script" && (
         <div className="space-y-4">
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <div className="flex gap-3">
-              <Shield className="h-5 w-5 flex-shrink-0 text-blue-600" />
-              <div className="text-sm text-blue-800">
-                <p className="mb-1 font-semibold">보안 안내</p>
-                <p>
-                  API Key는 <strong>서버 메모리에만</strong> 보관되며,
-                  디스크/DB에 저장되지 않습니다. 서버 재시작 시 자동 삭제됩니다.
-                </p>
-                <p className="mt-1">
-                  업비트에서 <strong>출금 권한 OFF, 조회 전용</strong>으로
-                  발급해주세요.
-                </p>
-              </div>
-            </div>
+            <p className="mb-3 text-sm font-semibold text-blue-800">
+              북마클릿으로 거래내역 자동 수집
+            </p>
+            <ol className="space-y-2 text-xs text-blue-800">
+              <li className="flex gap-2">
+                <span className="font-bold text-blue-600">①</span>
+                <span>아래 <b>📊 거래내역 수집</b> 버튼을 <b>북마크바에 드래그</b></span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-bold text-blue-600">②</span>
+                <span>
+                  <a href="https://upbit.com/mypage/orders" target="_blank" rel="noopener noreferrer" className="underline">
+                    업비트 웹
+                  </a>
+                  에 로그인
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-bold text-blue-600">③</span>
+                <span>북마크바에서 <b>📊 거래내역 수집</b> 클릭 (자동 수집 + 클립보드 복사)</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-bold text-blue-600">④</span>
+                <span>아래 입력창에 <b>Ctrl+V</b></span>
+              </li>
+            </ol>
           </div>
 
+          {/* Bookmarklet drag target */}
+          <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white py-4">
+            <a
+              href={BOOKMARKLET_CODE}
+              onClick={(e) => e.preventDefault()}
+              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-cyan-700"
+              title="이 버튼을 북마크바로 드래그하세요"
+            >
+              <Bookmark className="h-4 w-4" />
+              📊 거래내역 수집
+            </a>
+            <span className="ml-3 text-xs text-gray-400">← 북마크바로 드래그</span>
+          </div>
+
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder="수집 완료 후 여기에 Ctrl+V"
+            rows={6}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 font-mono text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          />
+
+          <button
+            onClick={handlePaste}
+            disabled={!pasteText.trim() || loading}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? "저장 중..." : "거래내역 저장 및 분석 시작"}
+          </button>
+        </div>
+      )}
+
+      {/* API Key method */}
+      {method === "api_key" && (
+        <div className="space-y-4">
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
             <div className="flex gap-3">
               <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-600" />
               <div className="text-sm text-amber-800">
-                <p>
-                  업비트 Exchange API는 <strong>고정 IP 등록이 필수</strong>입니다.
-                  로컬에서 사용 시 공인 IP를 업비트 API 설정에 등록해주세요.
-                </p>
+                <p className="mb-1 font-semibold">API Key 제한사항</p>
+                <p>고정 IP 등록 필수. 업비트 API 한계로 일부 거래만 조회될 수 있습니다. 전체 내역이 필요하면 "거래내역 가져오기" 탭을 이용하세요.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div className="flex gap-3">
+              <Shield className="h-5 w-5 flex-shrink-0 text-blue-600" />
+              <div className="text-sm text-blue-800">
+                <p>API Key는 서버 메모리에만 보관. 출금 권한 OFF, 조회 전용으로 발급하세요.</p>
               </div>
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Access Key
-            </label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Access Key</label>
             <input
-              type="password"
-              value={accessKey}
+              type="password" value={accessKey}
               onChange={(e) => setAccessKey(e.target.value)}
               placeholder="업비트 Access Key"
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
             />
           </div>
-
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Secret Key
-            </label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Secret Key</label>
             <input
-              type="password"
-              value={secretKey}
+              type="password" value={secretKey}
               onChange={(e) => setSecretKey(e.target.value)}
               placeholder="업비트 Secret Key"
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
@@ -163,40 +227,10 @@ export default function Setup() {
           <button
             onClick={handleConnect}
             disabled={!accessKey || !secretKey || loading}
-            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
           >
-            {loading ? "연결 중..." : "연결 및 거래내역 가져오기"}
-          </button>
-        </div>
-      )}
-
-      {/* CSV upload */}
-      {method === "csv" && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-500">
-            업비트 앱 → 입출금 → 거래내역 → CSV 다운로드 후 업로드해주세요.
-            API Key 없이도 사용 가능합니다.
-          </p>
-
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white p-8 transition-colors hover:border-brand-400">
-            <Upload className="mb-3 h-8 w-8 text-gray-400" />
-            <span className="text-sm font-medium text-gray-600">
-              {csvFile ? csvFile.name : "CSV 파일을 선택하거나 드래그하세요"}
-            </span>
-            <input
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
-            />
-          </label>
-
-          <button
-            onClick={handleCsvUpload}
-            disabled={!csvFile || loading}
-            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
-          >
-            {loading ? "업로드 중..." : "업로드 및 분석 시작"}
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? "동기화 중..." : "연결 및 거래내역 가져오기"}
           </button>
         </div>
       )}

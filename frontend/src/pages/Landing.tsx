@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   BarChart3, ArrowRight, Shield, Zap, Brain, GitBranch,
-  TrendingUp, Clock, Github,
+  TrendingUp, Github,
 } from "lucide-react";
 const features = [
   {
@@ -212,37 +212,13 @@ export default function Landing() {
           <h2 className="mb-12 text-center text-2xl font-bold">두 가지 방법으로 시작</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8">
-              <div className="mb-4 inline-flex rounded-xl bg-blue-500/10 p-3">
-                <TrendingUp className="h-6 w-6 text-blue-400" />
+              <div className="mb-4 inline-flex rounded-xl bg-cyan-500/10 p-3">
+                <TrendingUp className="h-6 w-6 text-cyan-400" />
               </div>
-              <h3 className="mb-2 text-lg font-bold">API Key 연동</h3>
+              <h3 className="mb-2 text-lg font-bold">거래내역 자동 수집</h3>
               <p className="mb-4 text-sm leading-relaxed text-gray-400">
-                업비트 API Key를 입력하면 거래내역을 자동으로 가져옵니다.
-                키는 서버 메모리에만 존재하며, 재시작 시 삭제됩니다.
-              </p>
-              <ul className="space-y-1.5 text-xs text-gray-500">
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  조회 전용 키 발급 (출금 권한 OFF)
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  고정 IP 등록 필요
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  실시간 동기화 지원
-                </li>
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8">
-              <div className="mb-4 inline-flex rounded-xl bg-amber-500/10 p-3">
-                <Clock className="h-6 w-6 text-amber-400" />
-              </div>
-              <h3 className="mb-2 text-lg font-bold">CSV 업로드</h3>
-              <p className="mb-4 text-sm leading-relaxed text-gray-400">
-                업비트 앱에서 거래내역 CSV를 다운로드한 후 업로드하세요.
-                API Key 없이도 바로 분석 가능합니다.
+                업비트 웹에서 스크립트 한 줄 실행하면 전체 거래내역을 자동 수집합니다.
+                API Key 불필요. 부분체결까지 정확하게.
               </p>
               <ul className="space-y-1.5 text-xs text-gray-500">
                 <li className="flex items-center gap-2">
@@ -251,11 +227,35 @@ export default function Landing() {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  진입장벽 제로
+                  전체 거래 내역 수집
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  한글 CSV 자동 인식
+                  부분체결 포함
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8">
+              <div className="mb-4 inline-flex rounded-xl bg-blue-500/10 p-3">
+                <TrendingUp className="h-6 w-6 text-blue-400" />
+              </div>
+              <h3 className="mb-2 text-lg font-bold">API Key 연동</h3>
+              <p className="mb-4 text-sm leading-relaxed text-gray-400">
+                조회 전용 API Key로 거래내역을 자동 동기화합니다.
+                고정 IP 등록이 필요하며 일부 데이터가 제한될 수 있습니다.
+              </p>
+              <ul className="space-y-1.5 text-xs text-gray-500">
+                <li className="flex items-center gap-2">
+                  <span className="h-1 w-1 rounded-full bg-gray-600" />
+                  자동 동기화
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1 w-1 rounded-full bg-gray-600" />
+                  고정 IP 등록 필요
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1 w-1 rounded-full bg-gray-600" />
+                  서버 메모리 only
                 </li>
               </ul>
             </div>

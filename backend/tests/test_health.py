@@ -88,6 +88,66 @@ async def test_upload_csv_valid(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_paste_events_json(client: AsyncClient):
+    import json
+    events = [
+        {
+            "uuid": "test-buy-1",
+            "event_type": "bid",
+            "market": "KRW-XRP",
+            "price": "3989",
+            "volume": "300",
+            "amount": "1196700",
+            "fee": "598.35",
+            "event_at": "2025-09-03T09:27:48+09:00",
+        },
+        {
+            "uuid": "test-sell-1",
+            "event_type": "ask",
+            "market": "KRW-XRP",
+            "price": "4271",
+            "volume": "117",
+            "amount": "500000",
+            "fee": "250",
+            "event_at": "2025-09-18T09:00:00+09:00",
+        },
+        {
+            "uuid": "test-deposit",
+            "event_type": "deposit",
+            "market": "KRW",
+            "price": "1",
+            "volume": "1000000",
+            "amount": "1000000",
+            "fee": "0",
+            "event_at": "2025-01-01T00:00:00+09:00",
+        },
+    ]
+    response = await client.post(
+        "/api/trades/paste",
+        json={"text": json.dumps(events)},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["synced"] == 2  # deposit filtered out
+    assert data["total_parsed"] == 2
+
+    trades_resp = await client.get("/api/trades")
+    trades = trades_resp.json()
+    assert len(trades) == 2
+
+    buy = next(t for t in trades if t["side"] == "buy")
+    assert buy["market"] == "KRW-XRP"
+    assert buy["price"] == 3989.0
+    assert buy["funds"] == 1196700.0
+
+
+@pytest.mark.asyncio
+async def test_paste_empty(client: AsyncClient):
+    response = await client.post("/api/trades/paste", json={"text": "[]"})
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_sync_without_session(client: AsyncClient):
     response = await client.post("/api/trades/sync")
     assert response.status_code == 401

@@ -15,7 +15,7 @@
 
 ## What it does
 
-1. **업비트 거래내역 가져오기** — API Key 또는 CSV 업로드
+1. **업비트 거래내역 가져오기** — 브라우저 스크립트 자동 수집 또는 API Key
 2. **통계 분석** — 승률, 종목별 PnL, 시간대/요일 분포, 보유기간, FIFO 매매 매칭
 3. **AI 코칭** — LangGraph 5단계 파이프라인이 반복 패턴을 찾아 실행 가능한 개선안 제안
 
@@ -75,10 +75,12 @@ React Frontend ──REST API──▶ FastAPI Backend
 
 ## Data Input
 
-| Method | Pros | Cons |
-|--------|------|------|
-| **API Key** | Auto-sync, real-time | Fixed IP required |
-| **CSV Upload** | No API key needed, zero barrier | Manual updates |
+### 거래내역 자동 수집 (권장)
+
+1. bitcoach 설정 페이지에서 "수집 스크립트 복사" 클릭
+2. [업비트 웹](https://upbit.com/mypage/orders) 로그인 → F12 → Console
+3. 스크립트 붙여넣기 → Enter (전체 거래내역 자동 수집)
+4. 완료 후 bitcoach 설정 페이지에서 Ctrl+V
 
 ### API Key Setup
 
@@ -123,7 +125,7 @@ bitcoach/
 │       │   ├── state.py       Shared state
 │       │   └── nodes/         5 pipeline nodes
 │       ├── api/routes/        REST endpoints
-│       ├── core/              Upbit client, CSV parser, security
+│       ├── core/              Upbit client, paste/CSV parser, security
 │       ├── services/          Trade analyzer, coaching orchestrator
 │       └── models/            SQLAlchemy models
 │
@@ -137,7 +139,8 @@ bitcoach/
 |--------|------|-------------|
 | POST | `/api/trades/connect` | Submit API keys (memory only) |
 | POST | `/api/trades/sync` | Fetch trades from Upbit |
-| POST | `/api/trades/upload-csv` | Upload CSV file |
+| POST | `/api/trades/paste` | Import trades from browser script |
+| POST | `/api/trades/upload-csv` | Upload CSV file (legacy) |
 | POST | `/api/trades/disconnect` | Clear keys from memory |
 | GET | `/api/trades` | List trades (filterable) |
 | GET | `/api/trades/statistics` | Basic stats |

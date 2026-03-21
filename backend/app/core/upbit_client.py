@@ -6,7 +6,9 @@ API Keys are held in memory only — never persisted to disk/DB.
 Reference: https://docs.upbit.com
 """
 
+import asyncio
 import hashlib
+import logging
 import uuid
 from datetime import datetime
 from urllib.parse import urlencode
@@ -138,10 +140,12 @@ class UpbitClient:
     ) -> list[dict]:
         """Fetch all completed orders with pagination.
 
-        Iterates through pages until no more results or max_pages reached.
-        For market orders (price=null), fetches order detail to get actual
-        execution price and funds from individual trades.
+        For market orders (ord_type in ["price", "market"]), fetches
+        individual order detail to get actual execution prices from
+        the trades field. Rate-limited to 8 req/sec per Upbit Exchange API.
         """
+        logger = logging.getLogger(__name__)
+
         all_orders: list[dict] = []
         page = 1
 
@@ -159,6 +163,25 @@ class UpbitClient:
             all_orders.extend(orders)
             page += 1
 
+        # Enrich market BUY orders with trade details.
+        # Market SELL orders (ord_type=market) are NOT enriched — they are
+        # mostly staking/airdrop auto-sells and should stay funds=0 to be
+        # filtered out during sync.
+        market_order_count = 0
+        for order in all_orders:
+            if order.get("ord_type") == "price":  # market buy only
+                await asyncio.sleep(0.13)  # rate limit: 8 req/sec
+                try:
+                    detail = await self.get_order_detail(order["uuid"])
+                    order["trades"] = detail.get("trades", [])
+                    market_order_count += 1
+                except Exception as e:
+                    logger.warning(
+                        "Failed to fetch detail for %s %s: %s",
+                        order.get("market"), order.get("uuid"), e,
+                    )
+
+        logger.info("Enriched %d market orders with trade details", market_order_count)
         return all_orders
 
     async def verify_credentials(self) -> bool:

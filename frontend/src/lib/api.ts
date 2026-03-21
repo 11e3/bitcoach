@@ -39,7 +39,7 @@ class ApiClient {
 
   // Trades
   syncTrades() {
-    return this.request<{ synced: number; skipped: number; total: number }>(
+    return this.request<{ synced: number; skipped: number; total: number; market_orders_enriched: number }>(
       "/api/trades/sync",
       { method: "POST" }
     );
@@ -68,6 +68,14 @@ class ApiClient {
       }
       return res.json();
     });
+  }
+
+  // Paste (browser console script output)
+  pasteTrades(text: string) {
+    return this.request<{ synced: number; skipped: number; total_parsed: number }>(
+      "/api/trades/paste",
+      { method: "POST", body: JSON.stringify({ text }) }
+    );
   }
 
   // Analysis

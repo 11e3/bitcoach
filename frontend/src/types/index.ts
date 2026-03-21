@@ -47,7 +47,7 @@ export interface CoachingReport {
 
 // --- Auth Types ---
 
-export type AuthMethod = "api_key" | "csv";
+export type AuthMethod = "api_key";
 
 export interface UpbitCredentials {
   access_key: string;
