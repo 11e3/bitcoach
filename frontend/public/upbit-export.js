@@ -113,14 +113,17 @@
     if (!creds.accessKey || !creds.secretKey) {
       sEl.textContent = "인증 정보를 찾을 수 없습니다.";
       sEl.style.color = "#f87171";
-      // Show storage keys for debugging
-      let debugKeys = [];
-      for (let i = 0; i < localStorage.length; i++) debugKeys.push("L:" + localStorage.key(i));
-      for (let i = 0; i < sessionStorage.length; i++) debugKeys.push("S:" + sessionStorage.key(i));
+      // Debug: dump all storage info
+      let debug = "=== v2 ===\n";
+      debug += "localStorage(" + localStorage.length + "): ";
+      for (let i = 0; i < localStorage.length; i++) debug += localStorage.key(i) + ", ";
+      debug += "\nsessionStorage(" + sessionStorage.length + "): ";
+      for (let i = 0; i < sessionStorage.length; i++) debug += sessionStorage.key(i) + ", ";
+      debug += "\ncookies: " + document.cookie.substring(0, 500);
+      debug += "\nhost: " + location.host;
       box.innerHTML +=
-        '<div style="margin:12px 0 0;font-size:10px;color:#666;text-align:left;max-height:200px;overflow:auto;background:#111;padding:8px;border-radius:8px;word-break:break-all">' +
-        "<b>Storage keys:</b><br>" + debugKeys.join("<br>") +
-        "</div>";
+        '<pre style="margin:12px 0 0;font-size:9px;color:#999;text-align:left;max-height:250px;overflow:auto;background:#111;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-all">' +
+        debug + "</pre>";
       addClose();
       return;
     }
