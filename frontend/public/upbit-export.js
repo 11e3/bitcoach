@@ -113,11 +113,14 @@
     if (!creds.accessKey || !creds.secretKey) {
       sEl.textContent = "인증 정보를 찾을 수 없습니다.";
       sEl.style.color = "#f87171";
+      // Show storage keys for debugging
+      let debugKeys = [];
+      for (let i = 0; i < localStorage.length; i++) debugKeys.push("L:" + localStorage.key(i));
+      for (let i = 0; i < sessionStorage.length; i++) debugKeys.push("S:" + sessionStorage.key(i));
       box.innerHTML +=
-        '<p style="margin:12px 0 0;font-size:12px;color:#aaa;text-align:left;line-height:1.6">' +
-        "업비트 웹에 로그인된 상태에서 실행해주세요.<br>" +
-        '그래도 안 되면 Console에서 <b style="color:#fff">allow pasting</b> 입력 후<br>' +
-        "스크립트를 직접 붙여넣기 해주세요.</p>";
+        '<div style="margin:12px 0 0;font-size:10px;color:#666;text-align:left;max-height:200px;overflow:auto;background:#111;padding:8px;border-radius:8px;word-break:break-all">' +
+        "<b>Storage keys:</b><br>" + debugKeys.join("<br>") +
+        "</div>";
       addClose();
       return;
     }
