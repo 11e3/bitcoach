@@ -158,19 +158,17 @@ export default function Setup() {
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">③</span>
-                <span><b>F12</b> → <b>Console</b> 탭 클릭</span>
+                <span><b>F12</b> → <b>Sources</b> 탭 → 좌측 <b>Snippets</b> → <b>New snippet</b></span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">④</span>
-                <span>
-                  콘솔에 <b className="rounded bg-blue-200 px-1.5 py-0.5 font-mono text-blue-900">allow pasting</b> 입력 후 Enter
-                  <br />
-                  <span className="text-blue-600">(Chrome 표준 보안 절차 — 최초 1회만)</span>
-                </span>
+                <span>편집 영역에 <b>Ctrl+V</b> (스크립트 붙여넣기)</span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">⑤</span>
-                <span>콘솔에 <b>Ctrl+V</b> → <b>Enter</b> (자동 수집 시작, 완료까지 대기)</span>
+                <span>
+                  <b>Ctrl+Enter</b> 또는 우클릭 → <b>Run</b> (수집 팝업이 뜨고 자동 완료)
+                </span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">⑥</span>
