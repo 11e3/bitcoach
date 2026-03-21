@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Shield, CheckCircle, Loader2, ClipboardPaste, Key, Bookmark } from "lucide-react";
+import { AlertTriangle, Shield, CheckCircle, Loader2, ClipboardPaste, Key, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
 const SCRIPT_URL = "https://cdn.jsdelivr.net/gh/11e3/bitcoach@master/frontend/public/upbit-export.js";
-const BOOKMARKLET_CODE = `javascript:void(document.head.appendChild(Object.assign(document.createElement('script'),{src:'${SCRIPT_URL}'})))`;
 
 type Method = "script" | "api_key";
 
@@ -18,6 +17,24 @@ export default function Setup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [scriptCopied, setScriptCopied] = useState(false);
+  const [scriptText, setScriptText] = useState<string | null>(null);
+
+  const handleCopyScript = async () => {
+    try {
+      let text = scriptText;
+      if (!text) {
+        const resp = await fetch(`${SCRIPT_URL}?t=${Date.now()}`);
+        text = await resp.text();
+        setScriptText(text);
+      }
+      await navigator.clipboard.writeText(text);
+      setScriptCopied(true);
+      setTimeout(() => setScriptCopied(false), 2000);
+    } catch {
+      setError("스크립트 복사 실패. 페이지를 새로고침 후 다시 시도해주세요.");
+    }
+  };
 
   const handlePaste = async () => {
     if (!pasteText.trim()) return;
@@ -123,46 +140,52 @@ export default function Setup() {
         <div className="space-y-4">
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <p className="mb-3 text-sm font-semibold text-blue-800">
-              북마클릿으로 거래내역 자동 수집
+              업비트 거래내역 자동 수집
             </p>
-            <ol className="space-y-2 text-xs text-blue-800">
+            <ol className="space-y-2.5 text-xs text-blue-800">
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">①</span>
-                <span>아래 <b>📊 거래내역 수집</b> 버튼을 <b>북마크바에 드래그</b></span>
+                <span>아래 <b>"수집 스크립트 복사"</b> 버튼 클릭</span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">②</span>
                 <span>
-                  <a href="https://upbit.com/mypage/orders" target="_blank" rel="noopener noreferrer" className="underline">
-                    업비트 웹
+                  <a href="https://upbit.com/investments/history" target="_blank" rel="noopener noreferrer" className="underline">
+                    업비트 투자내역
                   </a>
-                  에 로그인
+                  {" "}페이지 열기 (로그인 필수)
                 </span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">③</span>
-                <span>북마크바에서 <b>📊 거래내역 수집</b> 클릭 (자동 수집 + 클립보드 복사)</span>
+                <span><b>F12</b> → <b>Console</b> 탭 클릭</span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-blue-600">④</span>
-                <span>아래 입력창에 <b>Ctrl+V</b></span>
+                <span>
+                  콘솔에 <b className="rounded bg-blue-200 px-1.5 py-0.5 font-mono text-blue-900">allow pasting</b> 입력 후 Enter
+                  <br />
+                  <span className="text-blue-600">(Chrome 표준 보안 절차 — 최초 1회만)</span>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-bold text-blue-600">⑤</span>
+                <span>콘솔에 <b>Ctrl+V</b> → <b>Enter</b> (자동 수집 시작, 완료까지 대기)</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-bold text-blue-600">⑥</span>
+                <span>아래 입력창에 <b>Ctrl+V</b> (클립보드에 자동 복사됨)</span>
               </li>
             </ol>
           </div>
 
-          {/* Bookmarklet drag target */}
-          <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white py-4">
-            <a
-              href={BOOKMARKLET_CODE}
-              onClick={(e) => e.preventDefault()}
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-cyan-700"
-              title="이 버튼을 북마크바로 드래그하세요"
-            >
-              <Bookmark className="h-4 w-4" />
-              📊 거래내역 수집
-            </a>
-            <span className="ml-3 text-xs text-gray-400">← 북마크바로 드래그</span>
-          </div>
+          <button
+            onClick={handleCopyScript}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <Copy className="h-4 w-4" />
+            {scriptCopied ? "복사됨!" : "수집 스크립트 복사"}
+          </button>
 
           <textarea
             value={pasteText}

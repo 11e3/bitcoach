@@ -78,7 +78,7 @@ React Frontend ──REST API──▶ FastAPI Backend
 ### 거래내역 자동 수집 (권장)
 
 1. bitcoach 설정 페이지에서 "수집 스크립트 복사" 클릭
-2. [업비트 웹](https://upbit.com/mypage/orders) 로그인 → F12 → Console
+2. [업비트 웹](https://upbit.com/investments/history) 로그인 → F12 → Console
 3. 스크립트 붙여넣기 → Enter (전체 거래내역 자동 수집)
 4. 완료 후 bitcoach 설정 페이지에서 Ctrl+V
 
