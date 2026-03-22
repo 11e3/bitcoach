@@ -1,4 +1,5 @@
 // bitcoach: Upbit 거래내역 자동 수집
+// DevTools > Sources > Snippets에서 실행
 (async () => {
   // --- UI ---
   const overlay = document.createElement("div");
@@ -9,7 +10,7 @@
     "background:#1a1a2e;color:#fff;padding:32px 40px;border-radius:16px;text-align:center;min-width:340px";
   box.innerHTML =
     '<h2 style="margin:0 0 8px;font-size:18px">bitcoach</h2>' +
-    '<p id="bc-s" style="margin:0;font-size:14px;color:#aaa">인증 정보 검색 중...</p>' +
+    '<p id="bc-s" style="margin:0;font-size:14px;color:#aaa">인증 토큰 감지 중...</p>' +
     '<p id="bc-c" style="margin:8px 0 0;font-size:24px;font-weight:bold;color:#0ea5e9">0건</p>';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -22,123 +23,80 @@
     document.getElementById("bc-x").onclick = () => overlay.remove();
   }
 
-  // --- Find credentials in browser storage ---
-  function searchStorage() {
-    const stores = [localStorage, sessionStorage];
-    let accessKey = null, secretKey = null, deviceId = null;
+  // --- Step 1: Intercept fetch/XHR to capture Authorization header ---
+  let capturedToken = null;
+  const origFetch = window.fetch;
+  const origXHROpen = XMLHttpRequest.prototype.open;
+  const origXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
 
-    for (const store of stores) {
-      for (let i = 0; i < store.length; i++) {
-        const key = store.key(i);
-        const val = store.getItem(key);
-        if (!val) continue;
-
-        // Try parsing JSON values
-        try {
-          const parsed = typeof val === "string" && val.startsWith("{") ? JSON.parse(val) : null;
-          if (parsed) {
-            // Search nested objects for access_key, secret_key
-            const searchObj = (obj, depth) => {
-              if (depth > 3 || !obj || typeof obj !== "object") return;
-              for (const [k, v] of Object.entries(obj)) {
-                if (typeof v === "string" && v.length > 20 && v.length < 100) {
-                  const kl = k.toLowerCase();
-                  if (kl.includes("access") && kl.includes("key")) accessKey = v;
-                  if (kl.includes("secret") && kl.includes("key")) secretKey = v;
-                  if (kl.includes("device") && kl.includes("id")) deviceId = v;
-                }
-                if (typeof v === "object") searchObj(v, depth + 1);
-                if (typeof v === "string" && v.startsWith("{")) {
-                  try { searchObj(JSON.parse(v), depth + 1); } catch {}
-                }
-              }
-            };
-            searchObj(parsed, 0);
-          }
-        } catch {}
-
-        // Also check key names directly
-        const kl = key.toLowerCase();
-        if (kl.includes("access") && val.length > 20 && val.length < 100) accessKey = val;
-        if (kl.includes("secret") && val.length > 20 && val.length < 100) secretKey = val;
-        if (kl.includes("device") && val.length > 20 && val.length < 100) deviceId = val;
+  window.fetch = function (...args) {
+    try {
+      const opts = args[1] || {};
+      const headers = opts.headers;
+      if (headers) {
+        const h =
+          headers instanceof Headers ? headers : new Headers(headers);
+        const auth = h.get("authorization");
+        if (auth && auth.startsWith("Bearer ")) capturedToken = auth;
       }
+    } catch {}
+    return origFetch.apply(this, args);
+  };
+
+  XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+    if (
+      name.toLowerCase() === "authorization" &&
+      value.startsWith("Bearer ")
+    ) {
+      capturedToken = value;
     }
+    return origXHRSetHeader.apply(this, arguments);
+  };
 
-    // Also search cookies
-    document.cookie.split(";").forEach((c) => {
-      const [name, ...rest] = c.split("=");
-      const val = rest.join("=").trim();
-      const n = name.trim().toLowerCase();
-      if (n.includes("device") && val.length > 10) deviceId = val;
-    });
+  // --- Step 2: Wait for the page to make an authenticated request ---
+  // Trigger a mini navigation to force the page to re-fetch data
+  const currentUrl = location.href;
+  const historyState = history.state;
 
-    return { accessKey, secretKey, deviceId };
+  // Try triggering page's data refetch by dispatching events
+  window.dispatchEvent(new Event("focus"));
+  window.dispatchEvent(new Event("visibilitychange"));
+
+  // Wait up to 15 seconds for a token
+  for (let i = 0; i < 30; i++) {
+    if (capturedToken) break;
+    await new Promise((r) => setTimeout(r, 500));
+    sEl.textContent = `인증 토큰 감지 중... (${Math.floor(i / 2)}초)`;
   }
 
-  // --- JWT signing with Web Crypto API ---
-  async function makeJWT(accessKey, secretKey, deviceId) {
-    const header = { alg: "HS256", typ: "JWT" };
-    const payload = {
-      access_key: accessKey,
-      nonce: Date.now(),
-      device_id: deviceId || undefined,
-    };
+  // Restore original functions
+  window.fetch = origFetch;
+  XMLHttpRequest.prototype.setRequestHeader = origXHRSetHeader;
 
-    const enc = new TextEncoder();
-    const b64url = (s) =>
-      btoa(s).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-
-    const hB64 = b64url(JSON.stringify(header));
-    const pB64 = b64url(JSON.stringify(payload));
-    const sigInput = `${hB64}.${pB64}`;
-
-    const key = await crypto.subtle.importKey(
-      "raw",
-      enc.encode(secretKey),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
-    const sig = await crypto.subtle.sign("HMAC", key, enc.encode(sigInput));
-    const sB64 = b64url(String.fromCharCode(...new Uint8Array(sig)));
-
-    return `${hB64}.${pB64}.${sB64}`;
+  if (!capturedToken) {
+    sEl.textContent = "인증 토큰을 감지하지 못했습니다.";
+    sEl.style.color = "#f87171";
+    box.innerHTML +=
+      '<p style="margin:12px 0 0;font-size:12px;color:#aaa;line-height:1.6">' +
+      "페이지의 다른 탭(거래소 등)을 클릭했다가<br>" +
+      "다시 투자내역으로 돌아온 후 <b>다시 실행</b>해주세요.</p>";
+    addClose();
+    return;
   }
 
-  // --- Main ---
+  // --- Step 3: Fetch all trade events using captured token ---
+  sEl.textContent = "거래내역 수집 시작...";
+
+  const LIMIT = 100;
+  const FROM = "2020-01-01T00:00:00.000+09:00";
+  const TO = new Date().toISOString();
+  const BASE = "https://ccx.upbit.com/api/v1/investments/events";
+
+  let allEvents = [];
+  let lastUuid = undefined;
+  let page = 0;
+
   try {
-    const creds = searchStorage();
-
-    if (!creds.accessKey || !creds.secretKey) {
-      sEl.textContent = "인증 정보를 찾을 수 없습니다.";
-      sEl.style.color = "#f87171";
-      // Debug: dump all storage info
-      let debug = "=== v2 ===\n";
-      debug += "localStorage(" + localStorage.length + "): ";
-      for (let i = 0; i < localStorage.length; i++) debug += localStorage.key(i) + ", ";
-      debug += "\nsessionStorage(" + sessionStorage.length + "): ";
-      for (let i = 0; i < sessionStorage.length; i++) debug += sessionStorage.key(i) + ", ";
-      debug += "\ncookies: " + document.cookie.substring(0, 500);
-      debug += "\nhost: " + location.host;
-      box.innerHTML +=
-        '<pre style="margin:12px 0 0;font-size:9px;color:#999;text-align:left;max-height:250px;overflow:auto;background:#111;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-all">' +
-        debug + "</pre>";
-      addClose();
-      return;
-    }
-
-    sEl.textContent = "거래내역 수집 시작...";
-
-    const LIMIT = 100;
-    const FROM = "2020-01-01T00:00:00.000+09:00";
-    const TO = new Date().toISOString();
-    const BASE = "https://ccx.upbit.com/api/v1/investments/events";
-
-    let allEvents = [];
-    let lastUuid = undefined;
-    let page = 0;
-
     while (true) {
       const params = new URLSearchParams({
         limit: String(LIMIT),
@@ -147,19 +105,21 @@
       });
       if (lastUuid) params.set("uuid", lastUuid);
 
-      const token = await makeJWT(
-        creds.accessKey,
-        creds.secretKey,
-        creds.deviceId
-      );
-
-      const resp = await fetch(`${BASE}?${params}`, {
+      const resp = await origFetch(`${BASE}?${params}`, {
         credentials: "include",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: capturedToken,
           Accept: "application/json",
         },
       });
+
+      if (resp.status === 401) {
+        // Token expired, try to get a new one
+        sEl.textContent = "토큰 만료. 페이지를 새로고침 후 다시 실행해주세요.";
+        sEl.style.color = "#f87171";
+        addClose();
+        return;
+      }
 
       if (!resp.ok) {
         sEl.textContent = `API 오류: ${resp.status}`;
