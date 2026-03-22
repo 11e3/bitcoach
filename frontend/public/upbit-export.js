@@ -1,160 +1,104 @@
-// bitcoach: Upbit 거래내역 자동 수집
+// bitcoach: Upbit 거래내역 수집 v6
+// 방식: API 응답을 백그라운드로 가로채고, 사용자가 직접 스크롤
 // DevTools > Sources > Snippets에서 실행
 (async () => {
-  // --- UI ---
-  const overlay = document.createElement("div");
-  overlay.style.cssText =
-    "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:sans-serif";
-  const box = document.createElement("div");
-  box.style.cssText =
-    "background:#1a1a2e;color:#fff;padding:32px 40px;border-radius:16px;text-align:center;min-width:340px";
-  box.innerHTML =
-    '<h2 style="margin:0 0 8px;font-size:18px">bitcoach</h2>' +
-    '<p id="bc-s" style="margin:0;font-size:14px;color:#aaa">인증 토큰 감지 중...</p>' +
-    '<p id="bc-c" style="margin:8px 0 0;font-size:24px;font-weight:bold;color:#0ea5e9">0건</p>';
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
+  const allEvents = [];
+  const seenUuids = new Set();
+
+  // --- Intercept fetch ---
+  const origFetch = window.fetch;
+  window.fetch = function (...args) {
+    const url = typeof args[0] === "string" ? args[0] : args[0]?.url || "";
+    const result = origFetch.apply(this, args);
+    if (url.includes("investments/events")) {
+      result.then(async (resp) => {
+        try {
+          const data = await resp.clone().json();
+          if (Array.isArray(data)) {
+            for (const e of data) {
+              if ((e.event_type === "bid" || e.event_type === "ask") && !seenUuids.has(e.uuid)) {
+                seenUuids.add(e.uuid);
+                allEvents.push(e);
+              }
+            }
+            cEl.textContent = `${allEvents.length.toLocaleString()}건`;
+          }
+        } catch {}
+      });
+    }
+    return result;
+  };
+
+  // --- Intercept XMLHttpRequest ---
+  const origOpen = XMLHttpRequest.prototype.open;
+  const origSend = XMLHttpRequest.prototype.send;
+  const xhrUrls = new WeakMap();
+  XMLHttpRequest.prototype.open = function (m, url, ...r) {
+    xhrUrls.set(this, url);
+    return origOpen.call(this, m, url, ...r);
+  };
+  XMLHttpRequest.prototype.send = function (...args) {
+    if ((xhrUrls.get(this) || "").includes("investments/events")) {
+      this.addEventListener("load", function () {
+        try {
+          const data = JSON.parse(this.responseText);
+          if (Array.isArray(data)) {
+            for (const e of data) {
+              if ((e.event_type === "bid" || e.event_type === "ask") && !seenUuids.has(e.uuid)) {
+                seenUuids.add(e.uuid);
+                allEvents.push(e);
+              }
+            }
+            cEl.textContent = `${allEvents.length.toLocaleString()}건`;
+          }
+        } catch {}
+      });
+    }
+    return origSend.apply(this, args);
+  };
+
+  // --- UI: floating bar at top (doesn't block scrolling) ---
+  const bar = document.createElement("div");
+  bar.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a1a2e;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;font-family:sans-serif;font-size:14px;box-shadow:0 2px 12px rgba(0,0,0,.5)";
+  bar.innerHTML =
+    '<div><b>bitcoach</b> · <span id="bc-s">거래내역을 맨 아래까지 스크롤하세요</span></div>' +
+    '<div style="display:flex;align-items:center;gap:12px">' +
+    '<span id="bc-c" style="font-size:20px;font-weight:bold;color:#0ea5e9">0건</span>' +
+    '<button id="bc-done" style="padding:6px 16px;border:none;border-radius:6px;background:#0ea5e9;color:#fff;font-size:13px;cursor:pointer;font-weight:bold">수집 완료</button>' +
+    "</div>";
+  document.body.appendChild(bar);
+  // Push page content down so bar doesn't cover it
+  document.body.style.marginTop = "52px";
+
   const sEl = document.getElementById("bc-s");
   const cEl = document.getElementById("bc-c");
 
-  function addClose() {
-    box.innerHTML +=
-      '<button id="bc-x" style="margin-top:16px;padding:8px 24px;border:none;border-radius:8px;background:#0ea5e9;color:#fff;font-size:14px;cursor:pointer">닫기</button>';
-    document.getElementById("bc-x").onclick = () => overlay.remove();
-  }
+  // --- Wait for user to finish scrolling, then copy ---
+  document.getElementById("bc-done").onclick = async () => {
+    // Restore
+    window.fetch = origFetch;
+    XMLHttpRequest.prototype.open = origOpen;
+    XMLHttpRequest.prototype.send = origSend;
+    document.body.style.marginTop = "";
 
-  // --- Step 1: Intercept fetch/XHR to capture Authorization header ---
-  let capturedToken = null;
-  const origFetch = window.fetch;
-  const origXHROpen = XMLHttpRequest.prototype.open;
-  const origXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+    if (allEvents.length === 0) {
+      sEl.textContent = "수집된 거래가 없습니다. 스크롤 후 다시 시도하세요.";
+      sEl.style.color = "#f87171";
+      return;
+    }
 
-  window.fetch = function (...args) {
     try {
-      const opts = args[1] || {};
-      const headers = opts.headers;
-      if (headers) {
-        const h =
-          headers instanceof Headers ? headers : new Headers(headers);
-        const auth = h.get("authorization");
-        if (auth && auth.startsWith("Bearer ")) capturedToken = auth;
-      }
-    } catch {}
-    return origFetch.apply(this, args);
-  };
-
-  XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
-    if (
-      name.toLowerCase() === "authorization" &&
-      value.startsWith("Bearer ")
-    ) {
-      capturedToken = value;
+      await navigator.clipboard.writeText(JSON.stringify(allEvents));
+      sEl.textContent = `${allEvents.length.toLocaleString()}건 클립보드 복사 완료! bitcoach 설정에서 Ctrl+V`;
+      sEl.style.color = "#4ade80";
+      document.getElementById("bc-done").textContent = "닫기";
+      document.getElementById("bc-done").onclick = () => {
+        bar.remove();
+      };
+    } catch {
+      sEl.textContent = "클립보드 복사 실패";
+      sEl.style.color = "#f87171";
     }
-    return origXHRSetHeader.apply(this, arguments);
   };
-
-  // --- Step 2: Wait for the page to make an authenticated request ---
-  // Trigger a mini navigation to force the page to re-fetch data
-  const currentUrl = location.href;
-  const historyState = history.state;
-
-  // Try triggering page's data refetch by dispatching events
-  window.dispatchEvent(new Event("focus"));
-  window.dispatchEvent(new Event("visibilitychange"));
-
-  // Wait up to 15 seconds for a token
-  for (let i = 0; i < 30; i++) {
-    if (capturedToken) break;
-    await new Promise((r) => setTimeout(r, 500));
-    sEl.textContent = `인증 토큰 감지 중... (${Math.floor(i / 2)}초)`;
-  }
-
-  // Restore original functions
-  window.fetch = origFetch;
-  XMLHttpRequest.prototype.setRequestHeader = origXHRSetHeader;
-
-  if (!capturedToken) {
-    sEl.textContent = "인증 토큰을 감지하지 못했습니다.";
-    sEl.style.color = "#f87171";
-    box.innerHTML +=
-      '<p style="margin:12px 0 0;font-size:12px;color:#aaa;line-height:1.6">' +
-      "페이지의 다른 탭(거래소 등)을 클릭했다가<br>" +
-      "다시 투자내역으로 돌아온 후 <b>다시 실행</b>해주세요.</p>";
-    addClose();
-    return;
-  }
-
-  // --- Step 3: Fetch all trade events using captured token ---
-  sEl.textContent = "거래내역 수집 시작...";
-
-  const LIMIT = 100;
-  const FROM = "2020-01-01T00:00:00.000+09:00";
-  const TO = new Date().toISOString();
-  const BASE = "https://ccx.upbit.com/api/v1/investments/events";
-
-  let allEvents = [];
-  let lastUuid = undefined;
-  let page = 0;
-
-  try {
-    while (true) {
-      const params = new URLSearchParams({
-        limit: String(LIMIT),
-        from: FROM,
-        to: TO,
-      });
-      if (lastUuid) params.set("uuid", lastUuid);
-
-      const resp = await origFetch(`${BASE}?${params}`, {
-        credentials: "include",
-        headers: {
-          Authorization: capturedToken,
-          Accept: "application/json",
-        },
-      });
-
-      if (resp.status === 401) {
-        // Token expired, try to get a new one
-        sEl.textContent = "토큰 만료. 페이지를 새로고침 후 다시 실행해주세요.";
-        sEl.style.color = "#f87171";
-        addClose();
-        return;
-      }
-
-      if (!resp.ok) {
-        sEl.textContent = `API 오류: ${resp.status}`;
-        sEl.style.color = "#f87171";
-        addClose();
-        return;
-      }
-
-      const events = await resp.json();
-      if (!events.length) break;
-
-      const trades = events.filter(
-        (e) => e.event_type === "bid" || e.event_type === "ask"
-      );
-      allEvents.push(...trades);
-
-      page++;
-      sEl.textContent = `페이지 ${page} 수집 중...`;
-      cEl.textContent = `${allEvents.length.toLocaleString()}건`;
-
-      lastUuid = events[events.length - 1].uuid;
-      if (events.length < LIMIT) break;
-      await new Promise((r) => setTimeout(r, 130));
-    }
-
-    await navigator.clipboard.writeText(JSON.stringify(allEvents));
-    sEl.textContent = "클립보드 복사 완료!";
-    sEl.style.color = "#4ade80";
-    cEl.textContent = `${allEvents.length.toLocaleString()}건`;
-    box.innerHTML +=
-      '<p style="margin:16px 0 0;font-size:13px;color:#aaa">bitcoach 설정에서 <b>Ctrl+V</b></p>';
-    addClose();
-  } catch (err) {
-    sEl.textContent = `오류: ${err.message}`;
-    sEl.style.color = "#f87171";
-    addClose();
-  }
 })();

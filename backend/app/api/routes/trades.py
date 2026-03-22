@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.csv_parser import parse_csv
 from app.core.events_parser import parse_events
+from app.core.paste_parser import parse_paste
 from app.core.security import credential_manager
 from app.core.upbit_client import UpbitCredentials
 from app.db.database import get_db
@@ -227,9 +228,18 @@ class PasteRequest(BaseModel):
 
 @router.post("/paste")
 async def paste_trades(request: PasteRequest, db: AsyncSession = Depends(get_db)):
-    """Import trades from browser console script output (JSON)."""
+    """Import trades from pasted text.
+
+    Supports two formats:
+    - JSON array from browser console script (events API format)
+    - Plain text copied from Upbit web (10-line trade blocks)
+    """
+    text = request.text.strip()
     try:
-        parsed = parse_events(request.text)
+        if text.startswith("["):
+            parsed = parse_events(text)
+        else:
+            parsed = parse_paste(text)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"파싱 실패: {e}")
 

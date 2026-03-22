@@ -56,7 +56,13 @@ async def run_coaching_pipeline(
     initial_state = CoachingState(trades=trade_records)
 
     # Run pipeline
-    final_state = await coaching_pipeline.ainvoke(initial_state)
+    result = await coaching_pipeline.ainvoke(initial_state)
+
+    # LangGraph may return a dict instead of a CoachingState
+    if isinstance(result, dict):
+        final_state = CoachingState(**result)
+    else:
+        final_state = result
 
     # Save report
     report = CoachingReport(
