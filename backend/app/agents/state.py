@@ -59,6 +59,7 @@ class CoachingState(BaseModel):
     overall_stats: dict[str, Any] = Field(default_factory=dict)
     coin_performance: list[CoinSummary] = Field(default_factory=list)
     time_analysis: dict[str, Any] = Field(default_factory=dict)
+    precomputed_summary: str = ""  # Python-generated factual summary for LLM
 
     # Step 3: Patterns
     patterns: list[PatternInfo] = Field(default_factory=list)

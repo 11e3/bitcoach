@@ -110,4 +110,37 @@ async def compute_statistics(state: CoachingState) -> CoachingState:
         "weekday_distribution": {weekday_names[k]: v for k, v in weekday_counts.items()},
     }
 
+    # Pre-compute factual summary (Python guarantees correct numbers)
+    total_pnl = state.overall_stats.get("realized_pnl", 0)
+    pnl_sign = "수익" if total_pnl >= 0 else "손실"
+
+    winners = [c for c in coin_performance if c.realized_pnl > 0]
+    losers = [c for c in coin_performance if c.realized_pnl < 0]
+    winners_total = sum(c.realized_pnl for c in winners)
+    losers_total = sum(c.realized_pnl for c in losers)
+
+    lines = [
+        f"## 팩트 요약 (Python 계산, 수정 금지)",
+        f"- 총 거래: {len(trades)}건 (매수 {len(buys)}건, 매도 {len(sells)}건)",
+        f"- 기간: {trades[0].traded_at[:10]} ~ {trades[-1].traded_at[:10]}",
+        f"- 실현 손익: {total_pnl:+,.0f}원 ({pnl_sign})",
+        f"- 총 매수액: {total_buy_funds:,.0f}원",
+        f"- 총 수수료: {total_fees:,.0f}원",
+        f"",
+        f"## 종목별 손익 (확정 수치)",
+    ]
+    for c in coin_performance:
+        if c.realized_pnl != 0:
+            hold_str = f", 평균보유 {c.avg_hold_hours:.1f}시간" if c.avg_hold_hours else ""
+            lines.append(f"- {c.market}: {c.realized_pnl:+,.0f}원 ({c.pnl_pct:+.2f}%), {c.trade_count}건{hold_str}")
+
+    lines.append("")
+    lines.append(f"## 수익/손실 요약")
+    lines.append(f"- 수익 종목 {len(winners)}개: 합계 {winners_total:+,.0f}원")
+    lines.append(f"- 손실 종목 {len(losers)}개: 합계 {losers_total:+,.0f}원")
+    lines.append(f"- 최다 거래 시간: {peak_hour}시 ({hour_counts.get(peak_hour, 0)}건)")
+    lines.append(f"- 최다 거래 요일: {weekday_names[peak_weekday]} ({weekday_counts.get(peak_weekday, 0)}건)")
+
+    state.precomputed_summary = "\n".join(lines)
+
     return state
