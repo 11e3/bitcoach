@@ -45,3 +45,16 @@ class Trade(Base):
     __table_args__ = (
         Index("ix_trades_market_traded_at", "market", "traded_at"),
     )
+
+
+class AnalyticsEvent(Base):
+    """Simple event counter for portfolio metrics."""
+
+    __tablename__ = "analytics"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event: Mapped[str] = mapped_column(String(32))  # paste, coaching
+    session_id: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=datetime.datetime.utcnow
+    )

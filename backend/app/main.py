@@ -2,13 +2,14 @@ import asyncio
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Cookie, FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import delete
 
 from app.api.routes import analysis, coaching, trades
 from app.config import get_settings
-from app.db.database import async_session, init_db
+from app.db.database import async_session, get_db, init_db
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.trade import Trade
 
 SESSION_TTL_HOURS = 24
@@ -88,6 +89,21 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def health_check():
         return {"status": "ok", "version": "0.1.0"}
+
+    @app.get("/api/stats")
+    async def usage_stats(db: AsyncSession = Depends(get_db)):
+        """Public usage stats for portfolio."""
+        from sqlalchemy import func, select
+        from app.models.trade import AnalyticsEvent
+        result = await db.execute(
+            select(
+                AnalyticsEvent.event,
+                func.count(AnalyticsEvent.id).label("count"),
+                func.count(func.distinct(AnalyticsEvent.session_id)).label("sessions"),
+            ).group_by(AnalyticsEvent.event)
+        )
+        rows = {r.event: {"count": r.count, "unique_sessions": r.sessions} for r in result.all()}
+        return rows
 
     return app
 

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
+from app.models.trade import AnalyticsEvent
 from app.services.coaching_agent import run_coaching_pipeline
 
 router = APIRouter()
@@ -80,6 +81,8 @@ async def generate_report(
             start=body.start,
             end=body.end,
         )
+        db.add(AnalyticsEvent(event="coaching", session_id=session_id))
+        await db.flush()
         return report
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

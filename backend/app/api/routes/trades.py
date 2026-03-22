@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.events_parser import parse_events
 from app.core.paste_parser import parse_paste
 from app.db.database import get_db
-from app.models.trade import Trade
+from app.models.trade import AnalyticsEvent, Trade
 
 router = APIRouter()
 
@@ -99,6 +99,8 @@ async def paste_trades(
         db.add(trade)
         synced += 1
 
+    if synced > 0:
+        db.add(AnalyticsEvent(event="paste", session_id=sid))
     await db.flush()
     return {"synced": synced, "skipped": skipped, "total_parsed": len(parsed)}
 
