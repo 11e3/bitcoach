@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   BarChart3, ArrowRight, Shield, Zap, Brain, GitBranch,
-  TrendingUp, Github,
+  Github,
 } from "lucide-react";
 const features = [
   {
@@ -18,8 +18,8 @@ const features = [
   },
   {
     icon: Shield,
-    title: "API Key 보안",
-    desc: "서버 메모리 only. 디스크 미저장. 서버 재시작 시 자동 삭제. 오픈소스 투명성.",
+    title: "데이터 보안",
+    desc: "거래내역은 로컬 DB에만 저장. 외부 전송 없음. 오픈소스라 직접 확인 가능.",
     color: "from-emerald-500 to-green-400",
   },
   {
@@ -206,58 +206,31 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Data input methods */}
+      {/* How it works */}
       <section className="border-t border-gray-800/50 px-6 py-20">
         <div className="mx-auto max-w-4xl">
-          <h2 className="mb-12 text-center text-2xl font-bold">두 가지 방법으로 시작</h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8">
-              <div className="mb-4 inline-flex rounded-xl bg-cyan-500/10 p-3">
-                <TrendingUp className="h-6 w-6 text-cyan-400" />
-              </div>
-              <h3 className="mb-2 text-lg font-bold">거래내역 자동 수집</h3>
-              <p className="mb-4 text-sm leading-relaxed text-gray-400">
-                업비트 웹에서 스크립트 한 줄 실행하면 전체 거래내역을 자동 수집합니다.
-                API Key 불필요. 부분체결까지 정확하게.
+          <h2 className="mb-12 text-center text-2xl font-bold">3단계로 시작</h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8 text-center">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-xl font-bold text-cyan-400">1</div>
+              <h3 className="mb-2 font-bold">업비트 거래내역 복사</h3>
+              <p className="text-sm text-gray-400">
+                업비트 웹 → 투자내역 → 거래내역에서 드래그 후 Ctrl+C
               </p>
-              <ul className="space-y-1.5 text-xs text-gray-500">
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  API Key 불필요
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  전체 거래 내역 수집
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  부분체결 포함
-                </li>
-              </ul>
             </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8">
-              <div className="mb-4 inline-flex rounded-xl bg-blue-500/10 p-3">
-                <TrendingUp className="h-6 w-6 text-blue-400" />
-              </div>
-              <h3 className="mb-2 text-lg font-bold">API Key 연동</h3>
-              <p className="mb-4 text-sm leading-relaxed text-gray-400">
-                조회 전용 API Key로 거래내역을 자동 동기화합니다.
-                고정 IP 등록이 필요하며 일부 데이터가 제한될 수 있습니다.
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8 text-center">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-xl font-bold text-blue-400">2</div>
+              <h3 className="mb-2 font-bold">bitcoach에 붙여넣기</h3>
+              <p className="text-sm text-gray-400">
+                설정 페이지에서 Ctrl+V. 부분체결 자동 합산, 입출금 자동 제외.
               </p>
-              <ul className="space-y-1.5 text-xs text-gray-500">
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  자동 동기화
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  고정 IP 등록 필요
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-gray-600" />
-                  서버 메모리 only
-                </li>
-              </ul>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8 text-center">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/10 text-xl font-bold text-violet-400">3</div>
+              <h3 className="mb-2 font-bold">AI 코칭 받기</h3>
+              <p className="text-sm text-gray-400">
+                대시보드에서 분석 확인, AI 코칭 리포트로 개선점 파악.
+              </p>
             </div>
           </div>
         </div>

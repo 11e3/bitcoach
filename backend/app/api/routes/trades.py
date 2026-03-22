@@ -248,10 +248,19 @@ async def paste_trades(request: PasteRequest, db: AsyncSession = Depends(get_db)
 
     synced, skipped = 0, 0
     for td in parsed:
-        if not td.uuid or td.funds <= 0:
+        if td.funds <= 0:
             skipped += 1
             continue
-        exists = await db.execute(select(Trade.id).where(Trade.uuid == td.uuid))
+        # Deduplicate by (market, side, traded_at, funds, volume)
+        exists = await db.execute(
+            select(Trade.id).where(
+                Trade.market == td.market,
+                Trade.side == td.side,
+                Trade.traded_at == td.traded_at,
+                Trade.funds == td.funds,
+                Trade.volume == td.volume,
+            )
+        )
         if exists.scalar_one_or_none():
             skipped += 1
             continue

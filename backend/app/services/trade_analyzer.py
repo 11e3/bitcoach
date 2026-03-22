@@ -349,8 +349,9 @@ async def run_full_analysis(db: AsyncSession) -> FullAnalysis:
     # Per-coin
     coin_perf = compute_coin_performance(trades)
     coins_with_sells = [c for c in coin_perf if c.sell_count > 0]
-    winners = [c for c in coins_with_sells if c.realized_pnl > 0]
-    win_rate = len(winners) / len(coins_with_sells) * 100 if coins_with_sells else 0.0
+    # Win rate based on individual FIFO-matched trade pairs, not per-coin
+    winning_pairs = [p for p in pairs if p.pnl > 0]
+    win_rate = len(winning_pairs) / len(pairs) * 100 if pairs else 0.0
 
     # Time analysis
     by_hour = compute_time_analysis(trades)
@@ -366,8 +367,8 @@ async def run_full_analysis(db: AsyncSession) -> FullAnalysis:
     total_sell_funds = sum(t.funds for t in sells)
     total_fees = sum(t.fee for t in trades)
 
-    dates = {t.traded_at.date() for t in trades}
-    active_days = len(dates)
+    # Calendar days (not just active trading days)
+    calendar_days = (trades[-1].traded_at - trades[0].traded_at).days + 1
 
     overall = OverallStats(
         total_trades=len(trades),
@@ -381,8 +382,8 @@ async def run_full_analysis(db: AsyncSession) -> FullAnalysis:
         win_rate=round(win_rate, 1),
         period_start=trades[0].traded_at,
         period_end=trades[-1].traded_at,
-        active_days=active_days,
-        avg_trades_per_day=round(len(trades) / active_days, 1) if active_days > 0 else 0,
+        active_days=calendar_days,
+        avg_trades_per_day=round(len(trades) / calendar_days, 1) if calendar_days > 0 else 0,
     )
 
     return FullAnalysis(
