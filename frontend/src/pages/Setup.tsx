@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function Setup() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [pasteText, setPasteText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +21,8 @@ export default function Setup() {
     try {
       const result = await api.pasteTrades(pasteText);
       setStatus(`${result.synced}건 저장 완료! (총 ${result.total_parsed}건 파싱)`);
+      // Invalidate dashboard queries so they refetch with new data
+      await queryClient.invalidateQueries();
       setTimeout(() => navigate("/dashboard"), 1500);
     } catch (e: any) {
       setError(e.message || "파싱 실패");
