@@ -74,7 +74,8 @@ def create_app() -> FastAPI:
             key="session_id",
             value=session_id,
             httponly=True,
-            samesite="lax",
+            samesite="none",
+            secure=True,
             max_age=SESSION_TTL_HOURS * 3600,
         )
         return response

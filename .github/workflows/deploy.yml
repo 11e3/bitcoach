@@ -1,0 +1,36 @@
+name: Deploy Backend to Cloud Run
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "backend/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        working-directory: backend
+        run: |
+          gcloud run deploy bitcoach-api \
+            --source . \
+            --region asia-northeast3 \
+            --allow-unauthenticated \
+            --memory 512Mi \
+            --timeout 120 \
+            --min-instances 0 \
+            --max-instances 3

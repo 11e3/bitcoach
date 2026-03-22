@@ -44,5 +44,4 @@ class Trade(Base):
 
     __table_args__ = (
         Index("ix_trades_market_traded_at", "market", "traded_at"),
-        Index("ix_trades_session_id", "session_id"),
     )
