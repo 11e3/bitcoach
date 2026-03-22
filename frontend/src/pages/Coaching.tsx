@@ -6,16 +6,34 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+const STORAGE_KEY = "bitcoach-coaching-report";
+
+function loadCachedReport() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Coaching() {
   const queryClient = useQueryClient();
 
-  const report = queryClient.getQueryData<any>(["coaching-report"]) ?? null;
+  // Load from React Query cache first, then sessionStorage
+  const report = queryClient.getQueryData<any>(["coaching-report"]) ?? loadCachedReport();
+
+  // Restore into React Query cache if loaded from sessionStorage
+  if (report && !queryClient.getQueryData(["coaching-report"])) {
+    queryClient.setQueryData(["coaching-report"], report);
+  }
 
   const mutation = useMutation({
     mutationKey: ["coaching-generate"],
     mutationFn: () => api.generateReport(),
     onSuccess: (result) => {
       queryClient.setQueryData(["coaching-report"], result);
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(result));
     },
   });
 
