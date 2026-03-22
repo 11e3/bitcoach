@@ -43,8 +43,9 @@ async def compute_statistics(state: CoachingState) -> CoachingState:
         "classification_summary": state.classification_summary,
     }
 
-    # Per-coin performance (FIFO matching)
-    buy_queue: dict[str, list] = defaultdict(list)
+    # Per-coin performance (volume-based FIFO matching)
+    # Each buy slot tracks remaining volume for partial matching
+    buy_queue: dict[str, list] = defaultdict(list)  # market -> [(trade, remaining_vol)]
     coin_pnl: dict[str, float] = defaultdict(float)
     coin_trades: dict[str, int] = defaultdict(int)
     coin_hold_hours: dict[str, list] = defaultdict(list)
@@ -52,19 +53,38 @@ async def compute_statistics(state: CoachingState) -> CoachingState:
     for trade in trades:
         coin_trades[trade.market] += 1
         if trade.side == "buy":
-            buy_queue[trade.market].append(trade)
-        elif trade.side == "sell" and buy_queue[trade.market]:
-            buy = buy_queue[trade.market].pop(0)
-            pnl = trade.funds - buy.funds - buy.fee - trade.fee
-            coin_pnl[trade.market] += pnl
+            buy_queue[trade.market].append([trade, trade.volume])
+        elif trade.side == "sell":
+            queue = buy_queue.get(trade.market, [])
+            if not queue:
+                continue
 
-            try:
-                buy_dt = datetime.fromisoformat(buy.traded_at.replace("+09:00", "+09:00"))
-                sell_dt = datetime.fromisoformat(trade.traded_at.replace("+09:00", "+09:00"))
-                hours = (sell_dt - buy_dt).total_seconds() / 3600
-                coin_hold_hours[trade.market].append(hours)
-            except Exception:
-                pass
+            sell_remaining = trade.volume
+            sell_price = trade.price
+
+            while sell_remaining > 1e-12 and queue:
+                buy_trade, buy_remaining = queue[0]
+                matched_vol = min(buy_remaining, sell_remaining)
+
+                buy_funds = buy_trade.price * matched_vol
+                sell_funds = sell_price * matched_vol
+                frac_buy = matched_vol / buy_trade.volume if buy_trade.volume > 0 else 0
+                frac_sell = matched_vol / trade.volume if trade.volume > 0 else 0
+                pnl = sell_funds - buy_funds - buy_trade.fee * frac_buy - trade.fee * frac_sell
+                coin_pnl[trade.market] += pnl
+
+                try:
+                    buy_dt = datetime.fromisoformat(buy_trade.traded_at.replace("+09:00", "+09:00"))
+                    sell_dt = datetime.fromisoformat(trade.traded_at.replace("+09:00", "+09:00"))
+                    hours = (sell_dt - buy_dt).total_seconds() / 3600
+                    coin_hold_hours[trade.market].append(hours)
+                except Exception:
+                    pass
+
+                queue[0][1] -= matched_vol
+                sell_remaining -= matched_vol
+                if queue[0][1] <= 1e-12:
+                    queue.pop(0)
 
     coin_performance = []
     for market in set(t.market for t in trades):
