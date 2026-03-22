@@ -147,7 +147,6 @@ def parse_paste(text: str) -> list[ParsedTrade]:
             m.funds += t.funds
             m.volume += t.volume
             m.fee += t.fee
-            # Recalculate weighted average price
             m.price = m.funds / m.volume if m.volume > 0 else 0
         else:
             merged[key] = ParsedTrade(
@@ -161,4 +160,47 @@ def parse_paste(text: str) -> list[ParsedTrade]:
                 traded_at=t.traded_at,
             )
 
-    return list(merged.values())
+    # --- Net same-minute buy+sell pairs ---
+    # When buys and sells happen in the same minute for the same market
+    # (e.g., bot/algo trading), net the volume to get actual exposure.
+    result: list[ParsedTrade] = []
+    by_time_market: dict[tuple, list[ParsedTrade]] = {}
+    for t in merged.values():
+        key = (t.traded_at, t.market)
+        by_time_market.setdefault(key, []).append(t)
+
+    for (traded_at, market), trades_group in by_time_market.items():
+        buys = [t for t in trades_group if t.side == "buy"]
+        sells = [t for t in trades_group if t.side == "sell"]
+
+        if buys and sells:
+            # Both buy and sell in same minute — net them
+            buy = buys[0]
+            sell = sells[0]
+
+            if buy.volume > sell.volume:
+                # Net buy remains
+                net_vol = buy.volume - sell.volume
+                net_funds = buy.price * net_vol
+                net_fee = buy.fee - sell.fee if buy.fee > sell.fee else 0
+                result.append(ParsedTrade(
+                    uuid=str(uuid.uuid4()), market=market, side="buy",
+                    price=buy.price, volume=net_vol, funds=net_funds,
+                    fee=net_fee, traded_at=traded_at,
+                ))
+            elif sell.volume > buy.volume:
+                # Net sell remains
+                net_vol = sell.volume - buy.volume
+                net_funds = sell.price * net_vol
+                net_fee = sell.fee - buy.fee if sell.fee > buy.fee else 0
+                result.append(ParsedTrade(
+                    uuid=str(uuid.uuid4()), market=market, side="sell",
+                    price=sell.price, volume=net_vol, funds=net_funds,
+                    fee=net_fee, traded_at=traded_at,
+                ))
+            # else: equal volume, fully netted — no trade to record
+        else:
+            # Only buys or only sells — keep as-is
+            result.extend(trades_group)
+
+    return result
