@@ -98,14 +98,6 @@ class ApiClient {
       body: JSON.stringify({ start, end }),
     });
   }
-
-  getReports() {
-    return this.request<import("@/types").CoachingReport[]>("/api/coaching/reports");
-  }
-
-  getReport(id: number) {
-    return this.request<import("@/types").CoachingReport>(`/api/coaching/reports/${id}`);
-  }
 }
 
 export const api = new ApiClient(API_BASE);
