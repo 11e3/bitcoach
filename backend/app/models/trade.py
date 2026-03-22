@@ -20,7 +20,8 @@ class Trade(Base):
     __tablename__ = "trades"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    uuid: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    uuid: Mapped[str] = mapped_column(String(64), index=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True, default="")
 
     # Market info
     market: Mapped[str] = mapped_column(String(20), index=True)  # e.g. KRW-BTC
@@ -43,29 +44,5 @@ class Trade(Base):
 
     __table_args__ = (
         Index("ix_trades_market_traded_at", "market", "traded_at"),
-    )
-
-
-class CoachingReport(Base):
-    """AI coaching report."""
-
-    __tablename__ = "coaching_reports"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    # Report content
-    summary: Mapped[str] = mapped_column(Text)
-    strengths: Mapped[str] = mapped_column(Text)
-    weaknesses: Mapped[str] = mapped_column(Text)
-    suggestions: Mapped[str] = mapped_column(Text)
-    action_items: Mapped[str] = mapped_column(Text)  # JSON array
-
-    # Metadata
-    trade_count: Mapped[int] = mapped_column(default=0)
-    period_start: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    period_end: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-
-    # Timestamps
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.utcnow
+        Index("ix_trades_session_id", "session_id"),
     )

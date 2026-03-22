@@ -25,6 +25,7 @@ class CoachingResult:
 
 async def run_coaching_pipeline(
     db: AsyncSession,
+    session_id: str = "",
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> CoachingResult:
@@ -34,6 +35,8 @@ async def run_coaching_pipeline(
               → coaching (Haiku) → actions (Haiku)
     """
     query = select(Trade).order_by(Trade.traded_at.asc())
+    if session_id:
+        query = query.where(Trade.session_id == session_id)
     if start:
         query = query.where(Trade.traded_at >= start)
     if end:

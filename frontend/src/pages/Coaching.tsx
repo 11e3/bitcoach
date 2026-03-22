@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useMutationState, useQueryClient } from "@tanstack/react-query";
 import {
   BotMessageSquare, FileText, ChevronRight, Target,
   TrendingUp, AlertTriangle, Lightbulb, Loader2, Download,
@@ -9,25 +8,25 @@ import { cn } from "@/lib/utils";
 
 export default function Coaching() {
   const queryClient = useQueryClient();
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Persist report in React Query cache (survives tab switches)
   const report = queryClient.getQueryData<any>(["coaching-report"]) ?? null;
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setError(null);
-
-    try {
-      const result = await api.generateReport();
+  const mutation = useMutation({
+    mutationKey: ["coaching-generate"],
+    mutationFn: () => api.generateReport(),
+    onSuccess: (result) => {
       queryClient.setQueryData(["coaching-report"], result);
-    } catch (e: any) {
-      setError(e.message || "코칭 생성 실패");
-    } finally {
-      setGenerating(false);
-    }
-  };
+    },
+  });
+
+  // Track pending mutations globally (survives tab switches)
+  const pendingMutations = useMutationState({
+    filters: { mutationKey: ["coaching-generate"], status: "pending" },
+  });
+  const generating = pendingMutations.length > 0;
+  const error = mutation.error?.message ?? null;
+
+  const handleGenerate = () => mutation.mutate();
 
   const handleDownload = () => {
     if (!report) return;

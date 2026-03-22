@@ -9,6 +9,11 @@ from app.config import get_settings
 
 PATTERNS_PROMPT = """You are a crypto trading pattern detector. Analyze these trading statistics and classified trades to find recurring behavioral patterns — especially bad habits.
 
+IMPORTANT CONTEXT:
+- Trades at exact clock times (e.g., 9:00, 18:00) are likely automated/bot trades, NOT emotional decisions.
+- Multiple fills at the same timestamp are partial fills of a single order, NOT separate trading decisions.
+- Do NOT flag regular-interval trading as "overtrading" or "panic selling" — it's likely algorithmic.
+
 ## Trading Statistics
 {stats_json}
 

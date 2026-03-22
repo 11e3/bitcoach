@@ -120,17 +120,12 @@ class TradePair:
         return (self.sell_time - self.buy_time).total_seconds() / 3600
 
 
-async def get_all_trades(db: AsyncSession) -> list[Trade]:
-    """Fetch all trades ordered by time.
-
-    Excludes zero-funds records (airdrops, migrations, delistings)
-    which have price=0 and funds=0.
-    """
-    result = await db.execute(
-        select(Trade)
-        .where(Trade.funds > 0)
-        .order_by(Trade.traded_at.asc())
-    )
+async def get_all_trades(db: AsyncSession, session_id: str = "") -> list[Trade]:
+    """Fetch all trades for a session, ordered by time."""
+    query = select(Trade).where(Trade.funds > 0).order_by(Trade.traded_at.asc())
+    if session_id:
+        query = query.where(Trade.session_id == session_id)
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -326,9 +321,9 @@ def compute_holding_periods(pairs: list[TradePair]) -> list[HoldingPeriod]:
     ]
 
 
-async def run_full_analysis(db: AsyncSession) -> FullAnalysis:
+async def run_full_analysis(db: AsyncSession, session_id: str = "") -> FullAnalysis:
     """Run complete trade analysis."""
-    trades = await get_all_trades(db)
+    trades = await get_all_trades(db, session_id=session_id)
 
     if not trades:
         return FullAnalysis(

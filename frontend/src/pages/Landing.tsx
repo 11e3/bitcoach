@@ -106,6 +106,15 @@ export default function Landing() {
             무료로 시작하기
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
+
+          {/* Dashboard preview */}
+          <div className="mx-auto mt-14 max-w-4xl">
+            <img
+              src="/dashboard-preview.png"
+              alt="bitcoach 대시보드 미리보기"
+              className="w-full rounded-2xl border border-gray-200 shadow-2xl shadow-gray-200/50"
+            />
+          </div>
         </div>
       </section>
 
